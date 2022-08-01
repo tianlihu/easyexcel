@@ -32,7 +32,7 @@ public class ReadSheet<T> {
         List<Field> fields = PropertyFieldSorter.getIndexFields(type);
         List<T> records = new ArrayList<>(1000);
         int lastRowNum = sheet.getLastRowNum();
-        for (int rowIndex = headRowNumber; rowIndex < lastRowNum; rowIndex++) {
+        for (int rowIndex = headRowNumber; rowIndex <= lastRowNum; rowIndex++) {
             Row row = sheet.getRow(rowIndex);
             records.add(readRow(row, fields, type));
         }
