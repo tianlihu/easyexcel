@@ -1,15 +1,10 @@
 package com.yitiankeji.excel;
 
-import com.yitiankeji.excel.annotation.ExcelProperty;
 import com.yitiankeji.excel.reader.ExcelReader;
 import com.yitiankeji.excel.writer.ExcelWriter;
-import lombok.Data;
-import lombok.SneakyThrows;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
 
 public class EasyExcel {
 
@@ -39,29 +34,4 @@ public class EasyExcel {
         file.getParentFile().mkdirs();
         return write(Files.newOutputStream(file.toPath()));
     }
-
-    @SneakyThrows
-    public static void main(String[] args) {
-        List<User> users = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
-            User user = new User();
-            user.setId(i);
-            user.setName("name_" + i);
-            user.setAge(i * 10);
-            users.add(user);
-        }
-        EasyExcel.write("C:/Users/tianlihu/Desktop/test.xlsx").doWrite(User.class, users);
-
-//        List<User> users = EasyExcel.read("C:/Users/tianlihu/Desktop/test.xlsx").doReadAll(User.class);
-//        users.forEach(System.out::println);
-    }
-}
-
-@Data
-class User {
-    private Integer id;
-    @ExcelProperty("姓名")
-    private String name;
-    @ExcelProperty("年龄")
-    private Integer age;
 }

@@ -5,6 +5,7 @@ import com.yitiankeji.excel.converter.Converter;
 import com.yitiankeji.excel.utils.PropertyFieldSorter;
 import lombok.Data;
 import lombok.SneakyThrows;
+import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.zip.DataFormatException;
 
 @Data
+@Accessors(fluent = true)
 public class ReadSheet<T> {
 
     private int headRowNumber = 1;
@@ -29,6 +31,9 @@ public class ReadSheet<T> {
     private ExcelReadListener<T> listener;
 
     public List<T> doRead() {
+        if (sheet == null) {
+            return new ArrayList<>();
+        }
         List<Field> fields = PropertyFieldSorter.getIndexFields(type);
         List<T> records = new ArrayList<>(1000);
         int lastRowNum = sheet.getLastRowNum();
@@ -44,10 +49,10 @@ public class ReadSheet<T> {
         Constructor<T> constructor = type.getConstructor();
         constructor.setAccessible(true);
         T instance = constructor.newInstance();
-        for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
-            Cell cell = row.getCell(columnIndex);
+        for (Field field : fields) {
+            ExcelProperty property = field.getAnnotation(ExcelProperty.class);
+            Cell cell = row.getCell(property.index());
             String cellValue = getCellValue(cell);
-            Field field = fields.get(columnIndex);
             field.setAccessible(true);
             field.set(instance, convertValue(field, cellValue));
         }

@@ -48,6 +48,9 @@ public class ExcelReader {
     }
 
     public <T> ReadSheet<T> sheet(int sheetNo, Class<T> type, ExcelReadListener<T> listener) {
+        if (sheetNo >= workbook.getNumberOfSheets()) {
+            return sheet(type, null, listener);
+        }
         Sheet sheet = workbook.getSheetAt(sheetNo);
         return sheet(type, sheet, listener);
     }
@@ -63,9 +66,9 @@ public class ExcelReader {
 
     private <T> ReadSheet<T> sheet(Class<T> type, Sheet sheet, ExcelReadListener<T> listener) {
         ReadSheet<T> readSheet = new ReadSheet<>();
-        readSheet.setType(type);
-        readSheet.setSheet(sheet);
-        readSheet.setListener(listener);
+        readSheet.type(type);
+        readSheet.sheet(sheet);
+        readSheet.listener(listener);
         return readSheet;
     }
 

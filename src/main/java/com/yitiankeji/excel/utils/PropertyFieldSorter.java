@@ -9,29 +9,13 @@ public class PropertyFieldSorter {
 
     public static List<Field> getIndexFields(Class<?> type) {
         List<Field> fields = getAllFields(type);
-        Map<Integer, Field> indexFieldMap = new HashMap<>();
+        Map<Integer, Field> indexFieldMap = new TreeMap<>();
         List<Field> unindexFields = new ArrayList<>(fields.size());
         List<Field> propertyFields = new ArrayList<>(fields.size());
 
         cacheFields(type, fields, indexFieldMap, unindexFields, propertyFields);
 
-        List<Field> result = new ArrayList<>();
-        int index = 0;
-        int length = propertyFields.size();
-        while (index < length) {
-            Field field = indexFieldMap.get(index);
-            if (field != null) {
-                result.add(field);
-                index++;
-                continue;
-            }
-
-            field = unindexFields.get(0);
-            result.add(field);
-            unindexFields.remove(field);
-            index++;
-        }
-        return result;
+        return new ArrayList<>(indexFieldMap.values());
     }
 
     private static List<Field> getAllFields(Class<?> type) {
@@ -54,10 +38,6 @@ public class PropertyFieldSorter {
                 if (cachedField != null) {
                     throw new RuntimeException("Field property index ( " + index + " ) is already exists in Class " + type.getCanonicalName());
                 }
-            }
-
-            if (index >= fields.size()) {
-                throw new IndexOutOfBoundsException("Field property index ( " + index + " ) is out of bounds (" + fields.size() + ") in Class " + type.getCanonicalName());
             }
             fieldMap.put(index, field);
             if (index < 0) {
