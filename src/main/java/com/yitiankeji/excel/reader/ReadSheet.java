@@ -119,7 +119,7 @@ public class ReadSheet<T> {
         if (cell == null || cell.toString().trim().equals("")) {
             return "";
         }
-        CellType cellType = cell.getCellType();
+        CellType cellType = cell.getCellTypeEnum();
         switch (cellType) {
             case NUMERIC: // 数字
                 short format = cell.getCellStyle().getDataFormat();
