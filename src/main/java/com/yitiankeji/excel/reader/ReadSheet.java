@@ -113,13 +113,12 @@ public class ReadSheet<T> {
         return convertor.convertToJavaData(value, field);
     }
 
-    @SuppressWarnings("deprecation")
     public static String getCellValue(Cell cell) {
         //判断是否为null或空串
         if (cell == null || cell.toString().trim().equals("")) {
             return "";
         }
-        CellType cellType = cell.getCellType();
+        CellType cellType = cell.getCellTypeEnum();
         switch (cellType) {
             case NUMERIC: // 数字
                 short format = cell.getCellStyle().getDataFormat();
