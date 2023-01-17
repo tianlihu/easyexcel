@@ -8,29 +8,29 @@ import java.nio.file.Files;
 
 public class EasyExcel {
 
-    public static ExcelReader read(InputStream input) throws IOException {
-        return new ExcelReader(input instanceof BufferedInputStream ? (BufferedInputStream) input : new BufferedInputStream(input));
+    public static <T> ExcelReader<T> read(InputStream input) throws IOException {
+        return new ExcelReader<>(input instanceof BufferedInputStream ? (BufferedInputStream) input : new BufferedInputStream(input));
     }
 
-    public static ExcelReader read(String filePath) throws IOException {
+    public static <T> ExcelReader<T> read(String filePath) throws IOException {
         return read(new File(filePath));
     }
 
-    public static <T> ExcelReader read(File file) throws IOException {
-        return read(new FileInputStream(file));
+    public static <T> ExcelReader<T> read(File file) throws IOException {
+        return read(Files.newInputStream(file.toPath()));
     }
 
-    public static ExcelWriter write(OutputStream output) {
-        return new ExcelWriter(output);
+    public static <T> ExcelWriter<T> write(OutputStream output) {
+        return new ExcelWriter<T>(output);
     }
 
-    public static ExcelWriter write(String filePath) throws IOException {
+    public static <T> ExcelWriter<T> write(String filePath) throws IOException {
         File file = new File(filePath);
         file.getParentFile().mkdirs();
         return write(Files.newOutputStream(file.toPath()));
     }
 
-    public static ExcelWriter write(File file) throws IOException {
+    public static <T> ExcelWriter<T> write(File file) throws IOException {
         file.getParentFile().mkdirs();
         return write(Files.newOutputStream(file.toPath()));
     }

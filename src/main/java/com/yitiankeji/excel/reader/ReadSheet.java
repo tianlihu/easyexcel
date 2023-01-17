@@ -36,22 +36,43 @@ public class ReadSheet<T> {
         }
         List<Field> fields = PropertyFieldSorter.getIndexFields(type);
         List<T> records = new ArrayList<>(1000);
+
+        // 如果没有表头或没有内容，返回空列表
         int lastRowNum = sheet.getLastRowNum();
+        if (headRowNumber >= lastRowNum) {
+            return new ArrayList<>();
+        }
+
+        List<String> columnNames = readColumnNames();
         for (int rowIndex = headRowNumber; rowIndex <= lastRowNum; rowIndex++) {
             Row row = sheet.getRow(rowIndex);
-            records.add(readRow(row, fields, type));
+            T rowData = readRow(row, fields, type, columnNames);
+            listener.process(rowData, rowIndex);
+            records.add(rowData);
         }
         return records;
     }
 
+    private List<String> readColumnNames() {
+        List<String> columnNames = new ArrayList<>();
+        Row headRow = sheet.getRow(headRowNumber - 1);
+        for (int column = 0; column <= headRow.getLastCellNum(); column++) {
+            String columnName = getCellValue(headRow.getCell(column));
+            if (StringUtils.isNotEmpty(columnName)) {
+                columnNames.add(StringUtils.trimToEmpty(columnName));
+            }
+        }
+        return columnNames;
+    }
+
     @SneakyThrows
-    private T readRow(Row row, List<Field> fields, Class<T> type) {
+    private T readRow(Row row, List<Field> fields, Class<T> type, List<String> columnNames) {
         Constructor<T> constructor = type.getConstructor();
         constructor.setAccessible(true);
         T instance = constructor.newInstance();
         for (Field field : fields) {
-            ExcelProperty property = field.getAnnotation(ExcelProperty.class);
-            Cell cell = row.getCell(property.index());
+            int columnIndex = getColumnIndex(field, columnNames);
+            Cell cell = row.getCell(columnIndex);
             String cellValue = getCellValue(cell);
             field.setAccessible(true);
             field.set(instance, convertValue(field, cellValue));
@@ -59,10 +80,24 @@ public class ReadSheet<T> {
         return instance;
     }
 
+    private static int getColumnIndex(Field field, List<String> columnNames) {
+        ExcelProperty property = field.getAnnotation(ExcelProperty.class);
+        String[] names = property.value();
+        int columnIndex = property.index();
+        for (String name : names) {
+            int index = columnNames.indexOf(StringUtils.trimToNull(name));
+            if (index == -1) {
+                columnIndex = index;
+            }
+        }
+        return columnIndex;
+    }
+
     @SneakyThrows
+    @SuppressWarnings("unchecked")
     private Object convertValue(Field field, String value) {
         ExcelProperty property = field.getAnnotation(ExcelProperty.class);
-        Class<? extends Converter> converter = property.converter();
+        Class<? extends Converter<T>> converter = (Class<? extends Converter<T>>) property.converter();
         if (!converter.equals(Converter.AutoConverter.class)) {
             return convertValue(value, converter, field);
         }
@@ -106,10 +141,10 @@ public class ReadSheet<T> {
     }
 
     @SneakyThrows
-    private Object convertValue(String value, Class<? extends Converter> converter, Field field) {
-        Constructor<? extends Converter> constructor = converter.getDeclaredConstructor();
+    private Object convertValue(String value, Class<? extends Converter<T>> converter, Field field) {
+        Constructor<? extends Converter<T>> constructor = converter.getDeclaredConstructor();
         constructor.setAccessible(true);
-        Converter convertor = constructor.newInstance();
+        Converter<T> convertor = constructor.newInstance();
         return convertor.convertToJavaData(value, field);
     }
 

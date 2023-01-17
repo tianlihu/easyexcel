@@ -10,11 +10,18 @@ import java.lang.annotation.*;
 @Inherited
 public @interface ExcelProperty {
 
-    String value();
+    /** 列名 **/
+    String[] value();
 
+    /** 排序 **/
     int index() default -1;
 
+    /** 格式：支持日期和数字的格式 **/
     String format() default "";
 
+    /** 额外信息，用于支持更多的字典项等 **/
+    String extra() default "";
+
+    /** 用于自定义类型转换 **/
     Class<? extends Converter> converter() default AutoConverter.class;
 }

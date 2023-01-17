@@ -21,21 +21,21 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class ExcelWriter {
+public class ExcelWriter<T> {
 
     private final OutputStream output;
-    private final List<WriteSheet> writeSheets = new ArrayList<>();
+    private final List<WriteSheet<T>> writeSheets = new ArrayList<>();
 
     public ExcelWriter(OutputStream output) {
         this.output = new BufferedOutputStream(output);
     }
 
-    public ExcelWriter sheet(Class<?> type, List<?> records) {
+    public ExcelWriter<T> sheet(Class<T> type, List<T> records) {
         return sheet(null, type, records);
     }
 
-    public ExcelWriter sheet(String sheetName, Class<?> type, List<?> records) {
-        WriteSheet writeSheet = new WriteSheet();
+    public ExcelWriter<T> sheet(String sheetName, Class<T> type, List<T> records) {
+        WriteSheet<T> writeSheet = new WriteSheet<>();
         writeSheet.setSheetName(sheetName);
         writeSheet.setType(type);
         writeSheet.setRecords(records);
@@ -43,21 +43,25 @@ public class ExcelWriter {
         return this;
     }
 
-    public void doWrite(Class<?> type, List<?> records) throws IOException {
+    public void doWrite(Class<T> type, List<T> records) throws IOException {
         sheet(type, records);
         doWrite();
     }
 
-    public void doWrite(String sheetName, Class<?> type, List<?> records) throws IOException {
+    public void doWrite(String sheetName, Class<T> type, List<T> records) throws IOException {
         sheet(sheetName, type, records);
         doWrite();
     }
 
     public void doWrite() throws IOException {
+        doWrite(null);
+    }
+
+    public void doWrite(ExcelWriteListener<T> listener) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook(XSSFWorkbookType.XLSX)) {
             // 逐个Sheet写入文档
             for (int i = 0; i < writeSheets.size(); i++) {
-                WriteSheet writeSheet = writeSheets.get(i);
+                WriteSheet<T> writeSheet = writeSheets.get(i);
                 XSSFSheet sheet = workbook.createSheet(writeSheet.getSheetName() != null ? writeSheet.getSheetName() : "Sheet" + (i + 1));
 
                 // 写入表头
@@ -67,15 +71,22 @@ public class ExcelWriter {
                     Field field = fields.get(columnIndex);
                     ExcelProperty property = field.getAnnotation(ExcelProperty.class);
                     XSSFCell cell = headRow.createCell(columnIndex);
-                    cell.setCellValue(property.value());
+                    if (listener != null) {
+                        boolean process = listener.processHead(0, columnIndex, cell);
+                        if (!process) {
+                            cell.setCellValue(property.value()[0]);
+                        }
+                    } else {
+                        cell.setCellValue(property.value()[0]);
+                    }
                 }
 
                 // 逐行写入当前Sheet
-                List<?> records = writeSheet.getRecords();
+                List<T> records = writeSheet.getRecords();
                 for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
                     XSSFRow row = sheet.createRow(rowIndex + 1);
-                    Object record = records.get(rowIndex);
-                    writeRow(record, fields, row);
+                    T record = records.get(rowIndex);
+                    writeRow(record, fields, row, rowIndex + 1, listener);
                 }
 
                 // 列宽自适应
@@ -92,20 +103,31 @@ public class ExcelWriter {
         }
     }
 
-    private void writeRow(Object record, List<Field> fields, XSSFRow row) {
+    private void writeRow(T record, List<Field> fields, XSSFRow row, int rowIndex, ExcelWriteListener<T> listener) {
         for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
             XSSFCell cell = row.createCell(columnIndex);
             Field field = fields.get(columnIndex);
+            if (listener == null) {
+                cell.setCellValue(getFieldValue(record, field));
+                return;
+            }
+
+            boolean process = listener.process(record, rowIndex, columnIndex, cell, field);
+            if (process) {
+                return;
+            }
+
             cell.setCellValue(getFieldValue(record, field));
         }
     }
 
+    @SuppressWarnings("unchecked")
     @SneakyThrows
-    private String getFieldValue(Object record, Field field) {
+    private String getFieldValue(T record, Field field) {
         ExcelProperty property = field.getAnnotation(ExcelProperty.class);
         field.setAccessible(true);
         Object value = field.get(record);
-        Class<? extends Converter> converter = property.converter();
+        Class<? extends Converter<T>> converter = (Class<? extends Converter<T>>) property.converter();
         if (!converter.equals(Converter.AutoConverter.AutoConverter.class)) {
             return convertValue(record, value, converter, field);
         }
@@ -134,10 +156,10 @@ public class ExcelWriter {
     }
 
     @SneakyThrows
-    private String convertValue(Object row, Object value, Class<? extends Converter> converter, Field field) {
-        Constructor<? extends Converter> constructor = converter.getDeclaredConstructor();
+    private String convertValue(T row, Object value, Class<? extends Converter<T>> converter, Field field) {
+        Constructor<? extends Converter<T>> constructor = converter.getDeclaredConstructor();
         constructor.setAccessible(true);
-        Converter convertor = constructor.newInstance();
+        Converter<T> convertor = constructor.newInstance();
         return convertor.convertToExcelData(row, value, field);
     }
 }

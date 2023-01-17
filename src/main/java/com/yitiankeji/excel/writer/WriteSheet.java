@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class WriteSheet {
+public class WriteSheet<T> {
 
     private String sheetName;
-    private Class<?> type;
-    private List<?> records = new ArrayList<>();
+    private Class<T> type;
+    private List<T> records = new ArrayList<>();
 }
