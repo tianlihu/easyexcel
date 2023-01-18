@@ -36,21 +36,27 @@ public class ExcelReader<T> {
         int sheetCount = workbook.getNumberOfSheets();
         for (int sheetIndex = 0; sheetIndex < sheetCount; sheetIndex++) {
             ReadSheet<T> readSheet = sheet(sheetIndex, type, listener);
+            if (readSheet == null) {
+                continue;
+            }
             records.addAll(readSheet.doRead());
         }
         close();
         return records;
     }
 
-    public ReadSheet<T> sheet(int sheetNo, Class<T> type) {
-        return sheet(sheetNo, type, null);
+    public ReadSheet<T> sheet(int sheetIndex, Class<T> type) {
+        return sheet(sheetIndex, type, null);
     }
 
-    public ReadSheet<T> sheet(int sheetNo, Class<T> type, ExcelReadListener<T> listener) {
-        if (sheetNo >= workbook.getNumberOfSheets()) {
+    public ReadSheet<T> sheet(int sheetIndex, Class<T> type, ExcelReadListener<T> listener) {
+        if (sheetIndex >= workbook.getNumberOfSheets()) {
             return sheet(type, null, listener);
         }
-        Sheet sheet = workbook.getSheetAt(sheetNo);
+        if (workbook.isSheetHidden(sheetIndex)) {
+            return null;
+        }
+        Sheet sheet = workbook.getSheetAt(sheetIndex);
         return sheet(type, sheet, listener);
     }
 
@@ -60,6 +66,10 @@ public class ExcelReader<T> {
 
     public ReadSheet<T> sheet(String sheetName, Class<T> type, ExcelReadListener<T> listener) {
         Sheet sheet = workbook.getSheet(sheetName);
+        int sheetIndex = workbook.getSheetIndex(sheet);
+        if (workbook.isSheetHidden(sheetIndex)) {
+            return null;
+        }
         return sheet(type, sheet, listener);
     }
 

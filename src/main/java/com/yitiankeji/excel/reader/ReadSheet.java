@@ -88,7 +88,7 @@ public class ReadSheet<T> {
         int columnIndex = property.index();
         for (String name : names) {
             int index = columnNames.indexOf(StringUtils.trimToNull(name));
-            if (index == -1) {
+            if (index != -1) {
                 columnIndex = index;
             }
         }
@@ -96,7 +96,6 @@ public class ReadSheet<T> {
     }
 
     @SneakyThrows
-    @SuppressWarnings("unchecked")
     private Object convertValue(Field field, String value) {
         ExcelProperty property = field.getAnnotation(ExcelProperty.class);
         Class<? extends Converter> converter = property.converter();
@@ -153,7 +152,7 @@ public class ReadSheet<T> {
     public static String getCellValue(Cell cell) {
         //判断是否为null或空串
         if (cell == null || cell.toString().trim().equals("")) {
-            return "";
+            return null;
         }
         CellType cellType = cell.getCellTypeEnum();
         switch (cellType) {
