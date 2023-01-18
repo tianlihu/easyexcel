@@ -10,7 +10,7 @@ public interface ExcelWriteListener<T> {
         return false;
     }
 
-    default boolean process(T rowData, int rowIndex, int columnIndex, XSSFCell cell, Field field) {
+    default boolean process(Object rowData, int rowIndex, int columnIndex, XSSFCell cell, Field field) {
         return false;
     }
 }

@@ -97,7 +97,7 @@ public class ReadSheet<T> {
     @SuppressWarnings("unchecked")
     private Object convertValue(Field field, String value) {
         ExcelProperty property = field.getAnnotation(ExcelProperty.class);
-        Class<? extends Converter<T>> converter = (Class<? extends Converter<T>>) property.converter();
+        Class<? extends Converter> converter = property.converter();
         if (!converter.equals(Converter.AutoConverter.class)) {
             return convertValue(value, converter, field);
         }
@@ -141,10 +141,10 @@ public class ReadSheet<T> {
     }
 
     @SneakyThrows
-    private Object convertValue(String value, Class<? extends Converter<T>> converter, Field field) {
-        Constructor<? extends Converter<T>> constructor = converter.getDeclaredConstructor();
+    private Object convertValue(String value, Class<? extends Converter> converter, Field field) {
+        Constructor<? extends Converter> constructor = converter.getDeclaredConstructor();
         constructor.setAccessible(true);
-        Converter<T> convertor = constructor.newInstance();
+        Converter convertor = constructor.newInstance();
         return convertor.convertToJavaData(value, field);
     }
 

@@ -2,16 +2,16 @@ package com.yitiankeji.excel.converter;
 
 import java.lang.reflect.Field;
 
-public interface Converter<T> {
+public interface Converter {
 
     Object convertToJavaData(String value, Field field);
 
-    String convertToExcelData(T row, Object value, Field field);
+    String convertToExcelData(Object row, Object value, Field field);
 
-    class AutoConverter<T> implements Converter<T> {
+    class AutoConverter implements Converter {
 
         @Override
-        public String convertToExcelData(T row, Object value, Field field) {
+        public String convertToExcelData(Object row, Object value, Field field) {
             return null;
         }
 

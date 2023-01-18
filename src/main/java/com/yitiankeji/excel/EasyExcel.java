@@ -20,17 +20,17 @@ public class EasyExcel {
         return read(Files.newInputStream(file.toPath()));
     }
 
-    public static <T> ExcelWriter<T> write(OutputStream output) {
-        return new ExcelWriter<T>(output);
+    public static ExcelWriter write(OutputStream output) {
+        return new ExcelWriter(output);
     }
 
-    public static <T> ExcelWriter<T> write(String filePath) throws IOException {
+    public static ExcelWriter write(String filePath) throws IOException {
         File file = new File(filePath);
         file.getParentFile().mkdirs();
         return write(Files.newOutputStream(file.toPath()));
     }
 
-    public static <T> ExcelWriter<T> write(File file) throws IOException {
+    public static ExcelWriter write(File file) throws IOException {
         file.getParentFile().mkdirs();
         return write(Files.newOutputStream(file.toPath()));
     }
