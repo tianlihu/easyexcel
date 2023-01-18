@@ -47,7 +47,9 @@ public class ReadSheet<T> {
         for (int rowIndex = headRowNumber; rowIndex <= lastRowNum; rowIndex++) {
             Row row = sheet.getRow(rowIndex);
             T rowData = readRow(row, fields, type, columnNames);
-            listener.process(rowData, rowIndex);
+            if (listener != null) {
+                listener.process(rowData, rowIndex);
+            }
             records.add(rowData);
         }
         return records;
