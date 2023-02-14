@@ -6,6 +6,8 @@ import com.yitiankeji.excel.utils.PropertyFieldSorter;
 import lombok.SneakyThrows;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.xssf.usermodel.*;
 
 import java.io.BufferedOutputStream;
@@ -20,6 +22,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+
+import static org.apache.poi.ss.usermodel.BorderStyle.THIN;
+import static org.apache.poi.ss.usermodel.IndexedColors.BLACK1;
 
 public class ExcelWriter {
 
@@ -59,6 +64,8 @@ public class ExcelWriter {
 
     public void doWrite(ExcelWriteListener<?> listener) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook(XSSFWorkbookType.XLSX)) {
+            XSSFCellStyle titleStyle = createTitleStyle(workbook);
+
             // 逐个Sheet写入文档
             for (int i = 0; i < writeSheets.size(); i++) {
                 WriteSheet writeSheet = writeSheets.get(i);
@@ -71,6 +78,7 @@ public class ExcelWriter {
                     Field field = fields.get(columnIndex);
                     ExcelProperty property = field.getAnnotation(ExcelProperty.class);
                     XSSFCell cell = headRow.createCell(columnIndex);
+                    cell.setCellStyle(titleStyle);
                     if (listener != null) {
                         boolean process = listener.processHead(0, columnIndex, cell);
                         if (!process) {
@@ -82,16 +90,17 @@ public class ExcelWriter {
                 }
 
                 // 逐行写入当前Sheet
+                XSSFCellStyle cellStyle = createCellStyle(workbook);
                 List<?> records = writeSheet.getRecords();
                 for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
                     XSSFRow row = sheet.createRow(rowIndex + 1);
                     Object record = records.get(rowIndex);
-                    writeRow(record, fields, row, rowIndex + 1, listener);
+                    writeRow(record, fields, row, rowIndex + 1, listener, cellStyle);
                 }
 
                 // 列宽自适应
                 for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
-                    sheet.autoSizeColumn(columnIndex);
+                    sheet.autoSizeColumn(columnIndex, true);
                 }
             }
 
@@ -103,18 +112,45 @@ public class ExcelWriter {
         }
     }
 
-    private void writeRow(Object record, List<Field> fields, XSSFRow row, int rowIndex, ExcelWriteListener<?> listener) {
+    private static XSSFCellStyle createTitleStyle(XSSFWorkbook workbook) {
+        XSSFCellStyle titleStyle = workbook.createCellStyle();
+        titleStyle.setBorderLeft(THIN);
+        titleStyle.setBorderRight(THIN);
+        titleStyle.setBorderTop(THIN);
+        titleStyle.setBorderBottom(THIN);
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        titleStyle.setFillForegroundColor((short) 22);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        XSSFFont titleFont = workbook.createFont();
+        titleFont.setColor(BLACK1.index);
+        titleFont.setBold(true);
+        titleStyle.setFont(titleFont);
+        return titleStyle;
+    }
+
+    private static XSSFCellStyle createCellStyle(XSSFWorkbook workbook) {
+        XSSFCellStyle cellStyle = workbook.createCellStyle();
+        cellStyle.setBorderLeft(THIN);
+        cellStyle.setBorderRight(THIN);
+        cellStyle.setBorderTop(THIN);
+        cellStyle.setBorderBottom(THIN);
+        return cellStyle;
+    }
+
+    private void writeRow(Object record, List<Field> fields, XSSFRow row, int rowIndex, ExcelWriteListener<?> listener, XSSFCellStyle cellStyle) {
         for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
             XSSFCell cell = row.createCell(columnIndex);
+            cell.setCellStyle(cellStyle);
             Field field = fields.get(columnIndex);
             if (listener == null) {
                 cell.setCellValue(getFieldValue(record, field));
-                return;
+                continue;
             }
 
             boolean process = listener.process(record, rowIndex, columnIndex, cell, field);
             if (process) {
-                return;
+                continue;
             }
 
             cell.setCellValue(getFieldValue(record, field));
