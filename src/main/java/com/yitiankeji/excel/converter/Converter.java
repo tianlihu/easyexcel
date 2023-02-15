@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 
 public interface Converter {
 
-    Object convertToJavaData(String value, Field field);
+    Object convertToJavaData(Object value, Field field);
 
     String convertToExcelData(Object row, Object value, Field field);
 
@@ -16,7 +16,7 @@ public interface Converter {
         }
 
         @Override
-        public Object convertToJavaData(String value, Field field) {
+        public Object convertToJavaData(Object value, Field field) {
             return null;
         }
     }

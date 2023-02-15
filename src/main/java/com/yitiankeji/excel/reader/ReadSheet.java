@@ -7,7 +7,10 @@ import lombok.Data;
 import lombok.SneakyThrows;
 import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -39,7 +42,7 @@ public class ReadSheet<T> {
 
         // 如果没有表头或没有内容，返回空列表
         int lastRowNum = sheet.getLastRowNum();
-        if (headRowNumber >= lastRowNum) {
+        if (headRowNumber > lastRowNum) {
             return new ArrayList<>();
         }
 
@@ -59,7 +62,8 @@ public class ReadSheet<T> {
         List<String> columnNames = new ArrayList<>();
         Row headRow = sheet.getRow(headRowNumber - 1);
         for (int column = 0; column <= headRow.getLastCellNum(); column++) {
-            String columnName = getCellValue(headRow.getCell(column));
+            Cell cell = headRow.getCell(column);
+            String columnName = cell == null ? "" : cell.getStringCellValue();
             if (StringUtils.isNotEmpty(columnName)) {
                 columnNames.add(StringUtils.trimToEmpty(columnName));
             }
@@ -73,10 +77,11 @@ public class ReadSheet<T> {
         constructor.setAccessible(true);
         T instance = constructor.newInstance();
         for (Field field : fields) {
+            field.setAccessible(true);
+
             int columnIndex = getColumnIndex(field, columnNames);
             Cell cell = row.getCell(columnIndex);
-            String cellValue = getCellValue(cell);
-            field.setAccessible(true);
+            Object cellValue = getCellValue(field, cell);
             field.set(instance, convertValue(field, cellValue));
         }
         return instance;
@@ -96,7 +101,7 @@ public class ReadSheet<T> {
     }
 
     @SneakyThrows
-    private Object convertValue(Field field, String value) {
+    private Object convertValue(Field field, Object value) {
         ExcelProperty property = field.getAnnotation(ExcelProperty.class);
         Class<? extends Converter> converter = property.converter();
         if (!converter.equals(Converter.AutoConverter.class)) {
@@ -106,78 +111,175 @@ public class ReadSheet<T> {
             return null;
         }
 
-        Class<?> type = field.getType();
-        if (type.equals(String.class)) {
+        Class<?> fieldType = field.getType();
+        String format = property.format();
+        if (StringUtils.isEmpty(format)) {
+            if (boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
+                if (value instanceof Boolean) {
+                    return value;
+                } else if (value instanceof String) {
+                    return Boolean.valueOf((String) value);
+                }
+            } else if (BigDecimal.class.equals(fieldType)) {
+                if (value instanceof Number) {
+                    return BigDecimal.valueOf(((Number) value).doubleValue());
+                } else if (value instanceof String) {
+                    return new BigDecimal((String) value);
+                }
+            } else if (short.class.equals(fieldType) || Short.class.equals(fieldType)) {
+                NumberFormat numberFormat = new DecimalFormat("#.00");
+                if (value instanceof Number) {
+                    return ((Number) value).intValue();
+                } else if (value instanceof String) {
+                    return numberFormat.parse((String) value).intValue();
+                }
+            } else if (int.class.equals(fieldType) || Integer.class.equals(fieldType)) {
+                NumberFormat numberFormat = new DecimalFormat("#.00");
+                if (value instanceof Number) {
+                    return ((Number) value).intValue();
+                } else if (value instanceof String) {
+                    return numberFormat.parse((String) value).intValue();
+                }
+            } else if (long.class.equals(fieldType) || Long.class.equals(fieldType)) {
+                NumberFormat numberFormat = new DecimalFormat("#.00");
+                if (value instanceof Number) {
+                    return ((Number) value).longValue();
+                } else if (value instanceof String) {
+                    return numberFormat.parse((String) value).longValue();
+                }
+            } else if (float.class.equals(fieldType) || Float.class.equals(fieldType)) {
+                NumberFormat numberFormat = new DecimalFormat("#.00");
+                if (value instanceof Number) {
+                    return ((Number) value).floatValue();
+                } else if (value instanceof String) {
+                    return numberFormat.parse((String) value).floatValue();
+                }
+            } else if (double.class.equals(fieldType) || Double.class.equals(fieldType)) {
+                NumberFormat numberFormat = new DecimalFormat("#.00");
+                if (value instanceof Number) {
+                    return ((Number) value).doubleValue();
+                } else if (value instanceof String) {
+                    return numberFormat.parse((String) value).doubleValue();
+                }
+            } else if (Date.class.equals(fieldType)) {
+                if (value instanceof Date) {
+                    return value;
+                } else if (value instanceof String) {
+                    String date = (String) value;
+                    date = date.replaceAll("-", "").replaceAll(":", "").replaceAll(" ", "");
+                    if (date.length() == 8) {
+                        DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+                        return dateFormat.parse(date);
+                    } else if (date.length() == 14) {
+                        DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+                        return dateFormat.parse(date);
+                    }
+                }
+            }
             return value;
         }
-        if (type.equals(Integer.class)) {
-            String format = property.format();
-            if (StringUtils.isNotEmpty(format)) {
-                NumberFormat numberFormat = new DecimalFormat(format);
-                return numberFormat.parse(value).intValue();
+
+        if (String.class.equals(fieldType)) {
+            if (property.type() == ExcelProperty.NUMBER) {
+                if (value instanceof String) {
+                    return value;
+                } else if (value instanceof Number) {
+                    NumberFormat numberFormat = new DecimalFormat(format);
+                    return numberFormat.format(value);
+                }
+            } else if (property.type() == ExcelProperty.DATE) {
+                if (value instanceof String) {
+                    return value;
+                } else if (value instanceof Date) {
+                    DateFormat dateFormat = new SimpleDateFormat(format);
+                    return dateFormat.format(value);
+                }
             }
-            return Integer.valueOf(value);
-        }
-        if (type.equals(Long.class)) {
-            String format = property.format();
-            if (StringUtils.isNotEmpty(format)) {
-                NumberFormat numberFormat = new DecimalFormat(format);
-                return numberFormat.parse(value).intValue();
+            return value;
+        } else if (BigDecimal.class.equals(fieldType)) {
+            if (value instanceof Number) {
+                return BigDecimal.valueOf(((Number) value).doubleValue());
+            } else if (value instanceof String) {
+                return new BigDecimal((String) value);
             }
-            return Long.valueOf(value);
-        }
-        if (type.equals(BigDecimal.class)) {
-            value = value.replaceAll(",", "");
-            return new BigDecimal(value);
-        }
-        if (Date.class.isAssignableFrom(type)) {
-            String format = property.format();
-            if (StringUtils.isEmpty(format)) {
-                throw new DataFormatException("日期格式需要定义");
+        } else if (short.class.equals(fieldType) || Short.class.equals(fieldType)) {
+            NumberFormat numberFormat = new DecimalFormat(format);
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            } else if (value instanceof String) {
+                return numberFormat.parse((String) value).intValue();
             }
-            DateFormat numberFormat = new SimpleDateFormat(format);
-            return numberFormat.parse(value);
+        } else if (int.class.equals(fieldType) || Integer.class.equals(fieldType)) {
+            NumberFormat numberFormat = new DecimalFormat(format);
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            } else if (value instanceof String) {
+                return numberFormat.parse((String) value).intValue();
+            }
+        } else if (long.class.equals(fieldType) || Long.class.equals(fieldType)) {
+            NumberFormat numberFormat = new DecimalFormat(format);
+            if (value instanceof Number) {
+                return ((Number) value).longValue();
+            } else if (value instanceof String) {
+                return numberFormat.parse((String) value).longValue();
+            }
+        } else if (float.class.equals(fieldType) || Float.class.equals(fieldType)) {
+            NumberFormat numberFormat = new DecimalFormat(format);
+            if (value instanceof Number) {
+                return ((Number) value).floatValue();
+            } else if (value instanceof String) {
+                return numberFormat.parse((String) value).floatValue();
+            }
+        } else if (double.class.equals(fieldType) || Double.class.equals(fieldType)) {
+            NumberFormat numberFormat = new DecimalFormat(format);
+            if (value instanceof Number) {
+                return ((Number) value).doubleValue();
+            } else if (value instanceof String) {
+                return numberFormat.parse((String) value).doubleValue();
+            }
+        } else if (Date.class.equals(fieldType)) {
+            DateFormat dateFormat = new SimpleDateFormat(format);
+            if (value instanceof Date) {
+                return value;
+            } else if (value instanceof String) {
+                return dateFormat.parse((String) value);
+            }
+        } else if (boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
+            if (value instanceof Boolean) {
+                return value;
+            } else if (value instanceof String) {
+                return Boolean.valueOf((String) value);
+            }
         }
-        throw new RuntimeException("错误的值");
+        throw new RuntimeException("错误的值:" + value + ", " + field);
     }
 
     @SneakyThrows
-    private Object convertValue(String value, Class<? extends Converter> converter, Field field) {
+    private Object convertValue(Object value, Class<? extends Converter> converter, Field field) {
         Constructor<? extends Converter> constructor = converter.getDeclaredConstructor();
         constructor.setAccessible(true);
         Converter convertor = constructor.newInstance();
         return convertor.convertToJavaData(value, field);
     }
 
-    public static String getCellValue(Cell cell) {
+    public static Object getCellValue(Field field, Cell cell) {
         //判断是否为null或空串
         if (cell == null || cell.toString().trim().equals("")) {
             return null;
         }
+        ExcelProperty property = field.getAnnotation(ExcelProperty.class);
         CellType cellType = cell.getCellTypeEnum();
+        Class<?> fieldType = field.getType();
         switch (cellType) {
             case NUMERIC: // 数字
-                short format = cell.getCellStyle().getDataFormat();
-                if (DateUtil.isCellDateFormatted(cell)) { // 日期
-                    SimpleDateFormat sdf;
-                    if (format == 20 || format == 32) {
-                        sdf = new SimpleDateFormat("HH:mm");
-                    } else if (format == 14 || format == 31 || format == 57 || format == 58) {
-                        sdf = new SimpleDateFormat("yyyy-MM-dd");
-                    } else if (format == 179) {
-                        sdf = new SimpleDateFormat("HH:mm:ss");
-                    } else {
-                        sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                    }
-                    return sdf.format(cell.getDateCellValue());
-                } else {
-                    cell.setCellType(CellType.STRING);
-                    return cell.getStringCellValue();
+                if (Date.class.equals(fieldType) || property.type() == ExcelProperty.DATE) {
+                    return cell.getDateCellValue();
                 }
+                return cell.getNumericCellValue();
             case STRING: // 字符串
                 return cell.getStringCellValue();
             case BOOLEAN: // Boolean
-                return cell.getBooleanCellValue() + "";
+                return cell.getBooleanCellValue();
             case FORMULA: // 公式
                 cell.setCellType(CellType.STRING);
                 return cell.getStringCellValue();

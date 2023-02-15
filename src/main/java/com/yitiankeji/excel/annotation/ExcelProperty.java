@@ -22,6 +22,16 @@ public @interface ExcelProperty {
     /** 额外信息，用于支持更多的字典项等 **/
     String extra() default "";
 
+    /** 数据类型(0字符串, 1数字, 2日期) **/
+    int type() default 0;
+
     /** 用于自定义类型转换 **/
     Class<? extends Converter> converter() default AutoConverter.class;
+
+    /** 数据类型 - 字符串 **/
+    int STRING = 0;
+    /** 数据类型 - 数字 **/
+    int NUMBER = 1;
+    /** 数据类型 - 日期 **/
+    int DATE = 2;
 }

@@ -19,9 +19,7 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import static org.apache.poi.ss.usermodel.BorderStyle.THIN;
 import static org.apache.poi.ss.usermodel.IndexedColors.BLACK1;
@@ -65,6 +63,7 @@ public class ExcelWriter {
     public void doWrite(ExcelWriteListener<?> listener) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook(XSSFWorkbookType.XLSX)) {
             XSSFCellStyle titleStyle = createTitleStyle(workbook);
+            XSSFCellStyle cellStyle = createCellStyle(workbook);
 
             // 逐个Sheet写入文档
             for (int i = 0; i < writeSheets.size(); i++) {
@@ -73,12 +72,14 @@ public class ExcelWriter {
 
                 // 写入表头
                 List<Field> fields = PropertyFieldSorter.getIndexFields(writeSheet.getType());
+                Map<String, XSSFCellStyle> cellStyleMap = new HashMap<>(fields.size());
                 XSSFRow headRow = sheet.createRow(0);
                 for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
                     Field field = fields.get(columnIndex);
                     ExcelProperty property = field.getAnnotation(ExcelProperty.class);
                     XSSFCell cell = headRow.createCell(columnIndex);
                     cell.setCellStyle(titleStyle);
+                    cellStyleMap.put(field.getName(), createCellStyle(workbook, field, cellStyle));
                     if (listener != null) {
                         boolean process = listener.processHead(0, columnIndex, cell);
                         if (!process) {
@@ -90,12 +91,11 @@ public class ExcelWriter {
                 }
 
                 // 逐行写入当前Sheet
-                XSSFCellStyle cellStyle = createCellStyle(workbook);
                 List<?> records = writeSheet.getRecords();
                 for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
                     XSSFRow row = sheet.createRow(rowIndex + 1);
                     Object record = records.get(rowIndex);
-                    writeRow(record, fields, row, rowIndex + 1, listener, cellStyle);
+                    writeRow(workbook, sheet, record, fields, row, rowIndex + 1, listener, cellStyleMap);
                 }
 
                 // 列宽自适应
@@ -129,6 +129,18 @@ public class ExcelWriter {
         return titleStyle;
     }
 
+    private XSSFCellStyle createCellStyle(XSSFWorkbook workbook, Field field, XSSFCellStyle defaultCellStyle) {
+        ExcelProperty property = field.getAnnotation(ExcelProperty.class);
+        if (StringUtils.isEmpty(property.format())) {
+            return defaultCellStyle;
+        }
+
+        XSSFCellStyle cellStyle = createCellStyle(workbook);
+        XSSFDataFormat dataFormat = workbook.createDataFormat();
+        cellStyle.setDataFormat(dataFormat.getFormat(property.format()));
+        return cellStyle;
+    }
+
     private static XSSFCellStyle createCellStyle(XSSFWorkbook workbook) {
         XSSFCellStyle cellStyle = workbook.createCellStyle();
         cellStyle.setBorderLeft(THIN);
@@ -138,21 +150,80 @@ public class ExcelWriter {
         return cellStyle;
     }
 
-    private void writeRow(Object record, List<Field> fields, XSSFRow row, int rowIndex, ExcelWriteListener<?> listener, XSSFCellStyle cellStyle) {
+    @SneakyThrows
+    private void writeRow(XSSFWorkbook workbook, XSSFSheet sheet, Object record, List<Field> fields, XSSFRow row, int rowIndex, ExcelWriteListener<?> listener, Map<String, XSSFCellStyle> cellStyleMap) {
         for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
             XSSFCell cell = row.createCell(columnIndex);
-            cell.setCellStyle(cellStyle);
             Field field = fields.get(columnIndex);
+            cell.setCellStyle(cellStyleMap.get(field.getName()));
+            field.setAccessible(true);
+            Object value = field.get(record);
             if (listener == null) {
-                cell.setCellValue(getFieldValue(record, field));
+                writeCell(cell, field, record, value);
                 continue;
             }
 
-            boolean process = listener.process(record, rowIndex, columnIndex, cell, field);
+            boolean process = listener.process(record, rowIndex, columnIndex, workbook, sheet, cell, field);
             if (process) {
                 continue;
             }
 
+            writeCell(cell, field, record, value);
+        }
+    }
+
+    @SneakyThrows
+    private void writeCell(XSSFCell cell, Field field, Object record, Object value) {
+        if (value == null) {
+            return;
+        }
+
+        Class<?> fieldType = field.getType();
+        if (boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
+            if (value instanceof Boolean) {
+                cell.setCellValue((Boolean) value);
+            } else if (value instanceof String) {
+                cell.setCellValue(Boolean.parseBoolean((String) value));
+            } else {
+                throw new RuntimeException("布尔类型列，只能是true或false：" + field);
+            }
+            return;
+        }
+
+        ExcelProperty property = field.getAnnotation(ExcelProperty.class);
+        if (StringUtils.isEmpty(property.format())) {
+            if (value instanceof Number) {
+                cell.setCellValue(((Number) value).doubleValue());
+            } else if (value instanceof Date) {
+                cell.setCellValue(((Date) value));
+            } else {
+                cell.setCellValue(getFieldValue(record, field));
+            }
+            return;
+        }
+
+        if (property.type() == ExcelProperty.NUMBER) {
+            if (Number.class.isAssignableFrom(fieldType)) {
+                cell.setCellValue(((Number) value).doubleValue());
+            } else if (String.class.equals(fieldType)) {
+                DecimalFormat format = new DecimalFormat(property.format());
+                Number number = format.parse((String) value);
+                cell.setCellValue(number.doubleValue());
+            } else {
+                throw new RuntimeException("数值类型列，只能是数字类型或字符串类型：" + field);
+            }
+        } else if (property.type() == ExcelProperty.DATE) {
+            if (Date.class.isAssignableFrom(fieldType)) {
+                DateFormat format = new SimpleDateFormat(property.format());
+                cell.setCellValue(format.parse(format.format(value)));
+            } else if (String.class.equals(fieldType)) {
+                DateFormat format = new SimpleDateFormat(property.format());
+                Date date = format.parse((String) value);
+                cell.setCellValue(date);
+            } else {
+                throw new RuntimeException("日期类型列，只能是日期类型或字符串类型：" + field);
+            }
+        } else {
             cell.setCellValue(getFieldValue(record, field));
         }
     }
@@ -169,6 +240,7 @@ public class ExcelWriter {
         if (value == null) {
             return null;
         }
+
         if (value instanceof String) {
             return (String) value;
         }
