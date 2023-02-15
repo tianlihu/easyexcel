@@ -5,7 +5,6 @@ import lombok.SneakyThrows;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -29,7 +28,7 @@ public class OrderTest {
 
         EasyExcel.write("C:/Users/tianlihu/Desktop/test.xlsx").sheet("测试", Order.class, orders).doWrite();
 
-        List<Order> orders1 = EasyExcel.<Order>read("C:/Users/tianlihu/Desktop/test.xlsx").doReadAll(Order.class);
+        List<Order> orders1 = EasyExcel.read("C:/Users/tianlihu/Desktop/test.xlsx").doReadAll(Order.class);
         orders1.forEach(System.out::println);
     }
 }

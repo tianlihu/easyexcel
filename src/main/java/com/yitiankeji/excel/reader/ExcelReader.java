@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExcelReader<T> {
+public class ExcelReader {
 
     private final Workbook workbook;
 
@@ -27,11 +27,11 @@ public class ExcelReader<T> {
         }
     }
 
-    public List<T> doReadAll(Class<T> type) {
+    public <T> List<T> doReadAll(Class<T> type) {
         return doReadAll(type, null);
     }
 
-    public List<T> doReadAll(Class<T> type, ExcelReadListener<T> listener) {
+    public <T> List<T> doReadAll(Class<T> type, ExcelReadListener<T> listener) {
         List<T> records = new ArrayList<>(1000);
         int sheetCount = workbook.getNumberOfSheets();
         for (int sheetIndex = 0; sheetIndex < sheetCount; sheetIndex++) {
@@ -45,11 +45,11 @@ public class ExcelReader<T> {
         return records;
     }
 
-    public ReadSheet<T> sheet(int sheetIndex, Class<T> type) {
+    public <T> ReadSheet<T> sheet(int sheetIndex, Class<T> type) {
         return sheet(sheetIndex, type, null);
     }
 
-    public ReadSheet<T> sheet(int sheetIndex, Class<T> type, ExcelReadListener<T> listener) {
+    public <T> ReadSheet<T> sheet(int sheetIndex, Class<T> type, ExcelReadListener<T> listener) {
         if (sheetIndex >= workbook.getNumberOfSheets()) {
             return sheet(type, null, listener);
         }
@@ -60,11 +60,11 @@ public class ExcelReader<T> {
         return sheet(type, sheet, listener);
     }
 
-    public ReadSheet<T> sheet(String sheetName, Class<T> type) {
+    public <T> ReadSheet<T> sheet(String sheetName, Class<T> type) {
         return sheet(sheetName, type, null);
     }
 
-    public ReadSheet<T> sheet(String sheetName, Class<T> type, ExcelReadListener<T> listener) {
+    public <T> ReadSheet<T> sheet(String sheetName, Class<T> type, ExcelReadListener<T> listener) {
         Sheet sheet = workbook.getSheet(sheetName);
         int sheetIndex = workbook.getSheetIndex(sheet);
         if (workbook.isSheetHidden(sheetIndex)) {
@@ -73,7 +73,7 @@ public class ExcelReader<T> {
         return sheet(type, sheet, listener);
     }
 
-    private ReadSheet<T> sheet(Class<T> type, Sheet sheet, ExcelReadListener<T> listener) {
+    private <T> ReadSheet<T> sheet(Class<T> type, Sheet sheet, ExcelReadListener<T> listener) {
         ReadSheet<T> readSheet = new ReadSheet<>();
         readSheet.type(type);
         readSheet.sheet(sheet);

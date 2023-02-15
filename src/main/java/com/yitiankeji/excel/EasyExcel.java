@@ -8,15 +8,15 @@ import java.nio.file.Files;
 
 public class EasyExcel {
 
-    public static <T> ExcelReader<T> read(InputStream input) throws IOException {
-        return new ExcelReader<>(input instanceof BufferedInputStream ? (BufferedInputStream) input : new BufferedInputStream(input));
+    public static ExcelReader read(InputStream input) throws IOException {
+        return new ExcelReader(input instanceof BufferedInputStream ? (BufferedInputStream) input : new BufferedInputStream(input));
     }
 
-    public static <T> ExcelReader<T> read(String filePath) throws IOException {
+    public static ExcelReader read(String filePath) throws IOException {
         return read(new File(filePath));
     }
 
-    public static <T> ExcelReader<T> read(File file) throws IOException {
+    public static ExcelReader read(File file) throws IOException {
         return read(Files.newInputStream(file.toPath()));
     }
 
