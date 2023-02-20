@@ -10,5 +10,6 @@ public class WriteSheet {
 
     private String sheetName;
     private Class<?> type;
+    private List<String> headers;
     private List<?> records = new ArrayList<>();
 }

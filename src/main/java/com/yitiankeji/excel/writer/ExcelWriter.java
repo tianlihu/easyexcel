@@ -4,6 +4,7 @@ import com.yitiankeji.excel.annotation.ExcelProperty;
 import com.yitiankeji.excel.converter.Converter;
 import com.yitiankeji.excel.utils.PropertyFieldSorter;
 import lombok.SneakyThrows;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.FillPatternType;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
@@ -46,8 +48,26 @@ public class ExcelWriter {
         return this;
     }
 
+    public ExcelWriter sheet(List<String> headers, List<Map<String, ?>> records) {
+        return sheet(null, headers, records);
+    }
+
+    public ExcelWriter sheet(String sheetName, List<String> headers, List<Map<String, ?>> records) {
+        WriteSheet writeSheet = new WriteSheet();
+        writeSheet.setSheetName(sheetName);
+        writeSheet.setHeaders(headers);
+        writeSheet.setRecords(records);
+        writeSheets.add(writeSheet);
+        return this;
+    }
+
     public void doWrite(Class<?> type, List<?> records) throws IOException {
         sheet(type, records);
+        doWrite();
+    }
+
+    public void doWrite(List<String> headers, List<Map<String, ?>> records) throws IOException {
+        sheet(headers, records);
         doWrite();
     }
 
@@ -60,47 +80,80 @@ public class ExcelWriter {
         doWrite(null);
     }
 
+    @SuppressWarnings("unchecked")
     public void doWrite(ExcelWriteListener<?> listener) throws IOException {
         try (XSSFWorkbook workbook = new XSSFWorkbook(XSSFWorkbookType.XLSX)) {
             XSSFCellStyle titleStyle = createTitleStyle(workbook);
-            XSSFCellStyle cellStyle = createCellStyle(workbook);
 
             // 逐个Sheet写入文档
             for (int i = 0; i < writeSheets.size(); i++) {
                 WriteSheet writeSheet = writeSheets.get(i);
                 XSSFSheet sheet = workbook.createSheet(writeSheet.getSheetName() != null ? writeSheet.getSheetName() : "Sheet" + (i + 1));
+                Map<String, XSSFCellStyle> cellStyleMap = new HashMap<>();
 
-                // 写入表头
-                List<Field> fields = PropertyFieldSorter.getIndexFields(writeSheet.getType());
-                Map<String, XSSFCellStyle> cellStyleMap = new HashMap<>(fields.size());
-                XSSFRow headRow = sheet.createRow(0);
-                for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
-                    Field field = fields.get(columnIndex);
-                    ExcelProperty property = field.getAnnotation(ExcelProperty.class);
-                    XSSFCell cell = headRow.createCell(columnIndex);
-                    cell.setCellStyle(titleStyle);
-                    cellStyleMap.put(field.getName(), createCellStyle(workbook, field, cellStyle));
-                    if (listener != null) {
-                        boolean process = listener.processHead(0, columnIndex, cell);
-                        if (!process) {
+                if (CollectionUtils.isEmpty(writeSheet.getHeaders())) {
+                    // 写入表头
+                    List<Field> fields = PropertyFieldSorter.getIndexFields(writeSheet.getType());
+                    XSSFCellStyle cellStyle = createCellStyle(workbook);
+                    XSSFRow headRow = sheet.createRow(0);
+                    for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
+                        Field field = fields.get(columnIndex);
+                        ExcelProperty property = field.getAnnotation(ExcelProperty.class);
+                        XSSFCell cell = headRow.createCell(columnIndex);
+                        cell.setCellStyle(titleStyle);
+                        cellStyleMap.put(field.getName(), createCellStyle(workbook, field, cellStyle));
+                        if (listener != null) {
+                            boolean process = listener.processHead(0, columnIndex, cell);
+                            if (!process) {
+                                cell.setCellValue(property.value()[0]);
+                            }
+                        } else {
                             cell.setCellValue(property.value()[0]);
                         }
-                    } else {
-                        cell.setCellValue(property.value()[0]);
                     }
-                }
 
-                // 逐行写入当前Sheet
-                List<?> records = writeSheet.getRecords();
-                for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
-                    XSSFRow row = sheet.createRow(rowIndex + 1);
-                    Object record = records.get(rowIndex);
-                    writeRow(workbook, sheet, record, fields, row, rowIndex + 1, listener, cellStyleMap);
-                }
+                    // 逐行写入当前Sheet
+                    List<?> records = writeSheet.getRecords();
+                    for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
+                        XSSFRow row = sheet.createRow(rowIndex + 1);
+                        Object record = records.get(rowIndex);
+                        writeRow(workbook, sheet, record, fields, row, rowIndex + 1, listener, cellStyleMap);
+                    }
 
-                // 列宽自适应
-                for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
-                    sheet.autoSizeColumn(columnIndex, true);
+                    // 列宽自适应
+                    for (int columnIndex = 0; columnIndex < fields.size(); columnIndex++) {
+                        sheet.autoSizeColumn(columnIndex, true);
+                    }
+                } else {
+                    // 写入表头
+                    XSSFRow headRow = sheet.createRow(0);
+                    List<String> headers = writeSheet.getHeaders();
+                    for (int columnIndex = 0; columnIndex < headers.size(); columnIndex++) {
+                        XSSFCell cell = headRow.createCell(columnIndex);
+                        cell.setCellStyle(titleStyle);
+                        String columnName = headers.get(columnIndex);
+                        if (listener != null) {
+                            boolean process = listener.processHead(0, columnIndex, cell);
+                            if (!process) {
+                                cell.setCellValue(columnName);
+                            }
+                        } else {
+                            cell.setCellValue(columnName);
+                        }
+                    }
+
+                    // 逐行写入当前Sheet
+                    List<Map<String, ?>> records = (List<Map<String, ?>>) writeSheet.getRecords();
+                    for (int rowIndex = 0; rowIndex < records.size(); rowIndex++) {
+                        XSSFRow row = sheet.createRow(rowIndex + 1);
+                        Map<String, ?> record = records.get(rowIndex);
+                        writeRow(workbook, sheet, record, headers, row, rowIndex + 1, listener, createCellStyle(workbook));
+                    }
+
+                    // 列宽自适应
+                    for (int columnIndex = 0; columnIndex < headers.size(); columnIndex++) {
+                        sheet.autoSizeColumn(columnIndex, true);
+                    }
                 }
             }
 
@@ -225,6 +278,63 @@ public class ExcelWriter {
             }
         } else {
             cell.setCellValue(getFieldValue(record, field));
+        }
+    }
+
+    private void writeRow(XSSFWorkbook workbook, XSSFSheet sheet, Map<String, ?> record, List<String> headers, XSSFRow row, int rowIndex, ExcelWriteListener<?> listener, XSSFCellStyle cellStyle) {
+        for (int columnIndex = 0; columnIndex < headers.size(); columnIndex++) {
+            XSSFCell cell = row.createCell(columnIndex);
+            String columnName = headers.get(columnIndex);
+            cell.setCellStyle(cellStyle);
+            Object value = record.get(columnName);
+            if (listener == null) {
+                writeCell(workbook, cell, value);
+                continue;
+            }
+
+            boolean process = listener.process(record, rowIndex, columnIndex, workbook, sheet, cell, null);
+            if (process) {
+                continue;
+            }
+
+            writeCell(workbook, cell, value);
+        }
+    }
+
+    @SneakyThrows
+    private void writeCell(XSSFWorkbook workbook, XSSFCell cell, Object value) {
+        if (value == null) {
+            return;
+        }
+
+        if (value instanceof Number) {
+            if (value instanceof Byte || value instanceof Short) {
+                cell.setCellValue(((Number) value).intValue());
+            } else if (value instanceof Integer || value instanceof Long) {
+                XSSFCellStyle cellStyle = cell.getCellStyle();
+                XSSFDataFormat dataFormat = workbook.createDataFormat();
+                cellStyle.setDataFormat(dataFormat.getFormat("###,##0"));
+
+                cell.setCellValue(((Number) value).longValue());
+            } else if (value instanceof Float || value instanceof Double || value instanceof BigDecimal) {
+                XSSFCellStyle cellStyle = cell.getCellStyle();
+                XSSFDataFormat dataFormat = workbook.createDataFormat();
+                cellStyle.setDataFormat(dataFormat.getFormat("###,##0.00"));
+
+                cell.setCellValue(((Number) value).doubleValue());
+            } else {
+                throw new RuntimeException("数值类型列，只能是数字类型或字符串类型：" + value);
+            }
+        } else if (value instanceof Date) {
+            XSSFCellStyle cellStyle = createCellStyle(workbook);
+            XSSFDataFormat dataFormat = workbook.createDataFormat();
+            cellStyle.setDataFormat(dataFormat.getFormat("yyyy-MM-dd HH:mm:ss"));
+            cell.setCellStyle(cellStyle);
+
+            DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            cell.setCellValue(format.parse(format.format(value)));
+        } else {
+            cell.setCellValue(value.toString());
         }
     }
 
