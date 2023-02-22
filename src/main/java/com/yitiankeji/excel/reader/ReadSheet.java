@@ -22,7 +22,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.zip.DataFormatException;
 
 @Data
 @Accessors(fluent = true)
@@ -114,7 +113,9 @@ public class ReadSheet<T> {
         Class<?> fieldType = field.getType();
         String format = property.format();
         if (StringUtils.isEmpty(format)) {
-            if (boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
+            if (String.class.equals(fieldType)) {
+                return value.toString();
+            } else if (boolean.class.equals(fieldType) || Boolean.class.equals(fieldType)) {
                 if (value instanceof Boolean) {
                     return value;
                 } else if (value instanceof String) {
@@ -275,7 +276,13 @@ public class ReadSheet<T> {
                 if (Date.class.equals(fieldType) || property.type() == ExcelProperty.DATE) {
                     return cell.getDateCellValue();
                 }
-                return cell.getNumericCellValue();
+
+                double numericCellValue = cell.getNumericCellValue();
+                String value = String.valueOf(numericCellValue);
+                if (value.endsWith(".0")) {
+                    return (long) numericCellValue;
+                }
+                return numericCellValue;
             case STRING: // 字符串
                 return cell.getStringCellValue();
             case BOOLEAN: // Boolean
