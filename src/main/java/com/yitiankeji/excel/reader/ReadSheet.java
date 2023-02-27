@@ -48,7 +48,13 @@ public class ReadSheet<T> {
         List<String> columnNames = readColumnNames();
         for (int rowIndex = headRowNumber; rowIndex <= lastRowNum; rowIndex++) {
             Row row = sheet.getRow(rowIndex);
+            if (row == null) { // 跳过空行
+                continue;
+            }
             T rowData = readRow(row, fields, type, columnNames);
+            if (rowData == null) { // 跳过空行
+                continue;
+            }
             if (listener != null) {
                 listener.process(rowData, rowIndex);
             }
@@ -75,14 +81,28 @@ public class ReadSheet<T> {
         Constructor<T> constructor = type.getConstructor();
         constructor.setAccessible(true);
         T instance = constructor.newInstance();
+        boolean emptyLine = true;
         for (Field field : fields) {
             field.setAccessible(true);
 
             int columnIndex = getColumnIndex(field, columnNames);
             Cell cell = row.getCell(columnIndex);
+            if (cell == null) {
+                continue;
+            }
             Object cellValue = getCellValue(field, cell);
             field.set(instance, convertValue(field, cellValue));
+
+            String strValue = cellValue == null ? "" : cellValue.toString();  // 跳过空行
+            if (!StringUtils.isEmpty(strValue)) {
+                emptyLine = false;
+            }
         }
+
+        if (emptyLine) {
+            return null;
+        }
+
         return instance;
     }
 
