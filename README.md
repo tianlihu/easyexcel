@@ -60,5 +60,5 @@ EasyExcel.write("filepath.xlsx").sheet("Test Sheet1", Order.class, orders).sheet
 // White excel file with row data of type: List<Map<String, Object>>
 List<Map<String, Object>> datas = new ArrayList<>();
 List<String> headers = Arrays.asList("Column 1", "Column 2", "Column 3", "Column 4");
-EasyExcel.write("filepath.xlsx").sheet("测试", headers, datas).doWrite();
+EasyExcel.write("filepath.xlsx").sheet("Test Sheet", headers, datas).doWrite();
 ```
