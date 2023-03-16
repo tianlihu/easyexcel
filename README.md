@@ -52,13 +52,13 @@ List<Order> orders2 = EasyExcel.read("filepath.xlsx").sheet(0, Order.class).doRe
 List<Order> orders = new ArrayList<>();
 
 // Write only one sheet file
-EasyExcel.write("filepath.xlsx").sheet("测试", Order.class, orders).doWrite();
+EasyExcel.write("filepath.xlsx").sheet("Test Sheet", Order.class, orders).doWrite();
 
 // Write multiple sheet file
-EasyExcel.write("filepath.xlsx").sheet("测试", Order.class, orders).sheet("测试", Order.class, orders).doWrite();
+EasyExcel.write("filepath.xlsx").sheet("Test Sheet1", Order.class, orders).sheet("Test Shee2", Order.class, orders).doWrite();
 
 // White excel file with row data of type: List<Map<String, Object>>
 List<Map<String, Object>> datas = new ArrayList<>();
-List<String> headers = Arrays.asList("第1列", "第2列", "第3列", "第4列", "第5列", "第6列", "第7列", "第8列");
+List<String> headers = Arrays.asList("Column 1", "Column 2", "Column 3", "Column 4");
 EasyExcel.write("filepath.xlsx").sheet("测试", headers, datas).doWrite();
 ```
