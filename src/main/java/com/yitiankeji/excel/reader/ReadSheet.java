@@ -27,7 +27,8 @@ import java.util.List;
 @Accessors(fluent = true)
 public class ReadSheet<T> {
 
-    private int headRowNumber = 1;
+    private int headRowCount = 1;
+    private int summaryRowCount = 0;
     private Class<T> type;
     private Sheet sheet;
     private ExcelReadListener<T> listener;
@@ -41,12 +42,30 @@ public class ReadSheet<T> {
 
         // 如果没有表头或没有内容，返回空列表
         int lastRowNum = sheet.getLastRowNum();
-        if (headRowNumber > lastRowNum) {
+        if (headRowCount > lastRowNum) {
             return new ArrayList<>();
         }
 
+        for (int rowIndex = 0; rowIndex < headRowCount; rowIndex++) {
+            Row headRow = sheet.getRow(rowIndex);
+            if (headRow == null) { // 跳过空行
+                continue;
+            }
+
+            List<String> heads = new ArrayList<>();
+            for (int column = 0; column <= headRow.getLastCellNum(); column++) {
+                Cell headCell = headRow.getCell(column);
+                String head = headCell == null ? "" : headCell.getStringCellValue();
+                heads.add(head);
+            }
+
+            if (listener != null) {
+                listener.processHead(heads, rowIndex);
+            }
+        }
+
         List<String> columnNames = readColumnNames();
-        for (int rowIndex = headRowNumber; rowIndex <= lastRowNum; rowIndex++) {
+        for (int rowIndex = headRowCount; rowIndex <= (lastRowNum - summaryRowCount); rowIndex++) {
             Row row = sheet.getRow(rowIndex);
             if (row == null) { // 跳过空行
                 continue;
@@ -65,7 +84,7 @@ public class ReadSheet<T> {
 
     private List<String> readColumnNames() {
         List<String> columnNames = new ArrayList<>();
-        Row headRow = sheet.getRow(headRowNumber - 1);
+        Row headRow = sheet.getRow(headRowCount - 1);
         for (int column = 0; column <= headRow.getLastCellNum(); column++) {
             Cell cell = headRow.getCell(column);
             String columnName = cell == null ? "" : cell.getStringCellValue();
@@ -145,42 +164,42 @@ public class ReadSheet<T> {
                 if (value instanceof Number) {
                     return BigDecimal.valueOf(((Number) value).doubleValue());
                 } else if (value instanceof String) {
-                    return new BigDecimal((String) value);
+                    return new BigDecimal(((String) value).replaceAll(",", ""));
                 }
             } else if (short.class.equals(fieldType) || Short.class.equals(fieldType)) {
                 NumberFormat numberFormat = new DecimalFormat("#.00");
                 if (value instanceof Number) {
                     return ((Number) value).intValue();
                 } else if (value instanceof String) {
-                    return numberFormat.parse((String) value).intValue();
+                    return numberFormat.parse(((String) value).replaceAll(",", "")).intValue();
                 }
             } else if (int.class.equals(fieldType) || Integer.class.equals(fieldType)) {
                 NumberFormat numberFormat = new DecimalFormat("#.00");
                 if (value instanceof Number) {
                     return ((Number) value).intValue();
                 } else if (value instanceof String) {
-                    return numberFormat.parse((String) value).intValue();
+                    return numberFormat.parse(((String) value).replaceAll(",", "")).intValue();
                 }
             } else if (long.class.equals(fieldType) || Long.class.equals(fieldType)) {
                 NumberFormat numberFormat = new DecimalFormat("#.00");
                 if (value instanceof Number) {
                     return ((Number) value).longValue();
                 } else if (value instanceof String) {
-                    return numberFormat.parse((String) value).longValue();
+                    return numberFormat.parse(((String) value).replaceAll(",", "")).longValue();
                 }
             } else if (float.class.equals(fieldType) || Float.class.equals(fieldType)) {
                 NumberFormat numberFormat = new DecimalFormat("#.00");
                 if (value instanceof Number) {
                     return ((Number) value).floatValue();
                 } else if (value instanceof String) {
-                    return numberFormat.parse((String) value).floatValue();
+                    return numberFormat.parse(((String) value).replaceAll(",", "")).floatValue();
                 }
             } else if (double.class.equals(fieldType) || Double.class.equals(fieldType)) {
                 NumberFormat numberFormat = new DecimalFormat("#.00");
                 if (value instanceof Number) {
                     return ((Number) value).doubleValue();
                 } else if (value instanceof String) {
-                    return numberFormat.parse((String) value).doubleValue();
+                    return numberFormat.parse(((String) value).replaceAll(",", "")).doubleValue();
                 }
             } else if (Date.class.equals(fieldType)) {
                 if (value instanceof Date) {
@@ -221,42 +240,42 @@ public class ReadSheet<T> {
             if (value instanceof Number) {
                 return BigDecimal.valueOf(((Number) value).doubleValue());
             } else if (value instanceof String) {
-                return new BigDecimal((String) value);
+                return new BigDecimal(((String) value).replaceAll(",", ""));
             }
         } else if (short.class.equals(fieldType) || Short.class.equals(fieldType)) {
             NumberFormat numberFormat = new DecimalFormat(format);
             if (value instanceof Number) {
                 return ((Number) value).intValue();
             } else if (value instanceof String) {
-                return numberFormat.parse((String) value).intValue();
+                return numberFormat.parse(((String) value).replaceAll(",", "")).intValue();
             }
         } else if (int.class.equals(fieldType) || Integer.class.equals(fieldType)) {
             NumberFormat numberFormat = new DecimalFormat(format);
             if (value instanceof Number) {
                 return ((Number) value).intValue();
             } else if (value instanceof String) {
-                return numberFormat.parse((String) value).intValue();
+                return numberFormat.parse(((String) value).replaceAll(",", "")).intValue();
             }
         } else if (long.class.equals(fieldType) || Long.class.equals(fieldType)) {
             NumberFormat numberFormat = new DecimalFormat(format);
             if (value instanceof Number) {
                 return ((Number) value).longValue();
             } else if (value instanceof String) {
-                return numberFormat.parse((String) value).longValue();
+                return numberFormat.parse(((String) value).replaceAll(",", "")).longValue();
             }
         } else if (float.class.equals(fieldType) || Float.class.equals(fieldType)) {
             NumberFormat numberFormat = new DecimalFormat(format);
             if (value instanceof Number) {
                 return ((Number) value).floatValue();
             } else if (value instanceof String) {
-                return numberFormat.parse((String) value).floatValue();
+                return numberFormat.parse(((String) value).replaceAll(",", "")).floatValue();
             }
         } else if (double.class.equals(fieldType) || Double.class.equals(fieldType)) {
             NumberFormat numberFormat = new DecimalFormat(format);
             if (value instanceof Number) {
                 return ((Number) value).doubleValue();
             } else if (value instanceof String) {
-                return numberFormat.parse((String) value).doubleValue();
+                return numberFormat.parse(((String) value).replaceAll(",", "")).doubleValue();
             }
         } else if (Date.class.equals(fieldType)) {
             DateFormat dateFormat = new SimpleDateFormat(format);

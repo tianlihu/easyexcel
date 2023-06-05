@@ -1,10 +1,12 @@
 package com.yitiankeji.excel.reader;
 
-import java.util.Map;
+import java.util.List;
 
 public interface ExcelReadListener<T> {
 
-    void processHead(Map<Integer, Object> headMap, int rowIndex);
+    default void processHead(List<String> heads, int rowIndex) {
+    }
 
-    void process(T rowData, int rowIndex);
+    default void process(T rowData, int rowIndex) {
+    }
 }
